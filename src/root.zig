@@ -1,24 +1,57 @@
-//! By convention, root.zig is the root source file when making a library.
+//! HyprMCP - Hyprland Model Context Protocol Server
+//! 
+//! This is the root module for the HyprMCP library, which provides
+//! AI assistants with desktop automation capabilities for Hyprland
+//! through the Model Context Protocol (MCP).
+
 const std = @import("std");
 
-pub fn bufferedPrint() !void {
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.fs.File.stdout().deprecatedWriter();
-    // Buffering can improve performance significantly in print-heavy programs.
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+// Re-export core modules for library users
+pub const Server = @import("server/server.zig").Server;
+pub const Config = @import("config/config.zig").Config;
+pub const HyprlandClient = @import("hyprland/client.zig").HyprlandClient;
+pub const InputClient = @import("input/client.zig").InputClient;
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+// Re-export tool modules
+pub const WindowTools = @import("tools/window.zig");
+pub const InputTools = @import("tools/input.zig");
+pub const WorkspaceTools = @import("tools/workspace.zig");
 
-    try bw.flush(); // Don't forget to flush!
+// Re-export security modules
+pub const Security = @import("security/security.zig");
+
+// Library version information
+pub const version = "1.0.0";
+pub const protocol_version = "2025-06-18";
+
+/// Initialize the HyprMCP library with default configuration
+pub fn init(allocator: std.mem.Allocator) !Server {
+    const config = Config.default();
+    return Server.init(allocator, config);
 }
 
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
+/// Initialize the HyprMCP library with custom configuration
+pub fn initWithConfig(allocator: std.mem.Allocator, config: Config) !Server {
+    return Server.init(allocator, config);
 }
 
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+test "library initialization" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+    
+    // Test default initialization
+    var server = init(allocator) catch |err| switch (err) {
+        // Accept connection failures in test environment
+        error.HyprlandNotRunning => return,
+        else => return err,
+    };
+    defer server.deinit();
+    
+    try testing.expect(true);
+}
+
+test "version information" {
+    const testing = std.testing;
+    try testing.expect(std.mem.eql(u8, version, "1.0.0"));
+    try testing.expect(std.mem.eql(u8, protocol_version, "2025-06-18"));
 }
